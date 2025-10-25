@@ -2,28 +2,12 @@ use eframe::egui;
 use rand::Rng;
 use std::time::{Duration, Instant};
 
-#[derive(Debug, Clone, PartialEq)]
-enum CharType {
-    Number(u8),
-    Letter(u8),
-}
+mod char_type;
+mod input_direction;
 
-impl CharType {
-    fn as_char(&self) -> char {
-        match self {
-            CharType::Number(n) => *n as char,
-            CharType::Letter(l) => *l as char,
-        }
-    }
+use char_type::CharType;
+use input_direction::InputDirection;
 
-    // fn from_char(c: char) -> Self {
-    //     if c.is_ascii_digit() {
-    //         CharType::Number(c as u8)
-    //     } else {
-    //         CharType::Letter(c.to_ascii_uppercase() as u8)
-    //     }
-    // }
-}
 
 #[derive(Debug, Clone)]
 enum GamePhase {
@@ -50,27 +34,6 @@ struct MemoryGame {
     input_duration: Option<Duration>,  // Track total input time
 }
 
-#[derive(Debug, Clone)]
-enum InputDirection {
-    Forward,
-    Reverse,
-}
-
-impl InputDirection {
-    fn color(&self) -> egui::Color32 {
-        match self {
-            InputDirection::Forward => egui::Color32::from_rgb(0, 150, 255), // Blue for forward
-            InputDirection::Reverse => egui::Color32::from_rgb(255, 100, 100), // Red for reverse
-        }
-    }
-
-    fn short_name(&self) -> &str {
-        match self {
-            InputDirection::Forward => "FORWARD",
-            InputDirection::Reverse => "REVERSE",
-        }
-    }
-}
 
 impl MemoryGame {
     fn new() -> Self {
