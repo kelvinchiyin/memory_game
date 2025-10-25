@@ -1,5 +1,6 @@
 use eframe::egui;
 use rand::Rng;
+use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone, PartialEq)]
 enum CharType {
@@ -15,13 +16,13 @@ impl CharType {
         }
     }
 
-    fn from_char(c: char) -> Self {
-        if c.is_ascii_digit() {
-            CharType::Number(c as u8)
-        } else {
-            CharType::Letter(c.to_ascii_uppercase() as u8)
-        }
-    }
+    // fn from_char(c: char) -> Self {
+    //     if c.is_ascii_digit() {
+    //         CharType::Number(c as u8)
+    //     } else {
+    //         CharType::Letter(c.to_ascii_uppercase() as u8)
+    //     }
+    // }
 }
 
 #[derive(Debug, Clone)]
@@ -38,13 +39,15 @@ struct MemoryGame {
     user_input: Vec<CharType>,
     current_index: usize,
     phase: GamePhase,
-    show_duration: std::time::Duration,
+    // show_duration: Duration,
     error_message: Option<String>,
     sequence_display_timer: f32,
     current_sequence_index: usize,
     show_sequence: bool,
     normal_mode: bool,
     input_direction: InputDirection,
+    input_start_time: Option<Instant>, // Track when user starts inputting
+    input_duration: Option<Duration>,  // Track total input time
 }
 
 #[derive(Debug, Clone)]
@@ -54,20 +57,6 @@ enum InputDirection {
 }
 
 impl InputDirection {
-    // fn display_text(&self) -> &str {
-    //     match self {
-    //         InputDirection::Forward => "forward order",
-    //         InputDirection::Reverse => "reverse order",
-    //     }
-    // }
-
-    // fn icon(&self) -> &str {
-    //     match self {
-    //         InputDirection::Forward => "[FORWARD]",
-    //         InputDirection::Reverse => "[REVERSE]",
-    //     }
-    // }
-
     fn color(&self) -> egui::Color32 {
         match self {
             InputDirection::Forward => egui::Color32::from_rgb(0, 150, 255), // Blue for forward
@@ -90,13 +79,15 @@ impl MemoryGame {
             user_input: vec![],
             current_index: 0,
             phase: GamePhase::NotStarted,
-            show_duration: std::time::Duration::from_millis(800),
+            // show_duration: Duration::from_millis(800), // Just a constant, not used
             error_message: None,
             sequence_display_timer: 0.0,
             current_sequence_index: 0,
             show_sequence: false,
             normal_mode: true,
             input_direction: InputDirection::Forward,
+            input_start_time: None,
+            input_duration: None,
         }
     }
 
@@ -133,6 +124,8 @@ impl MemoryGame {
         self.sequence_display_timer = 0.0;
         self.current_sequence_index = 0;
         self.show_sequence = true;
+        self.input_start_time = None;
+        self.input_duration = None;
     }
 
     fn handle_key_input(&mut self, ctx: &egui::Context) {
@@ -174,7 +167,7 @@ impl MemoryGame {
                             egui::Key::Num4 => self.process_input(CharType::Number(b'4')),
                             egui::Key::Num5 => self.process_input(CharType::Number(b'5')),
                             egui::Key::Num6 => self.process_input(CharType::Number(b'6')),
-                            egui::Key::Num7 => self.process_input(CharType::Number(b'7')),  // Fixed this line
+                            egui::Key::Num7 => self.process_input(CharType::Number(b'7')),
                             egui::Key::Num8 => self.process_input(CharType::Number(b'8')),
                             egui::Key::Num9 => self.process_input(CharType::Number(b'9')),
                             egui::Key::Backspace | egui::Key::Delete => {
@@ -221,6 +214,11 @@ impl MemoryGame {
 
         // Check if the sequence is complete
         if self.user_input.len() == self.sequence.len() {
+            // Record the total input time
+            if let Some(start_time) = self.input_start_time {
+                self.input_duration = Some(start_time.elapsed());
+            }
+
             // Check if all characters were correct
             let mut all_correct = true;
 
@@ -299,6 +297,8 @@ impl eframe::App for MemoryGame {
             if self.current_sequence_index >= self.sequence.len() {
                 // Finished showing sequence, move to input phase
                 self.phase = GamePhase::Inputting;
+                // Start the timer when transitioning to Inputting phase
+                self.input_start_time = Some(Instant::now());
             }
         }
 
@@ -356,7 +356,6 @@ impl eframe::App for MemoryGame {
                             ui.colored_label(
                                 self.input_direction.color(),
                                 format!("{}", self.input_direction.short_name())
-                                    // format!("{} {}", self.input_direction.icon(), self.input_direction.short_name())
                             );
                         });
 
@@ -428,11 +427,15 @@ impl eframe::App for MemoryGame {
                             ui.colored_label(
                                 self.input_direction.color(),
                                 format!("{}", self.input_direction.short_name())
-
-                                // format!("{} {}", self.input_direction.icon(), self.input_direction.short_name())
                             );
                         });
                         ui.heading(&correct_seq);
+
+                        // Show input time if available
+                        if let Some(duration) = self.input_duration {
+                            let seconds = duration.as_secs_f32();
+                            ui.label(format!("Time taken: {:.2} seconds", seconds));
+                        }
 
                         if self.normal_mode {
                             ui.label("In Normal mode, the sequence was checked after you entered all characters.");
@@ -441,16 +444,12 @@ impl eframe::App for MemoryGame {
 
                     GamePhase::Success => {
                         ui.horizontal(|ui| {
-                            // ui.colored_label(egui::Color32::GREEN, "✅");
                             ui.heading("Congratulations!");
                         });
 
                         ui.colored_label(egui::Color32::GREEN,
                             format!("You remembered the sequence correctly in {}!",
                                     self.input_direction.short_name())
-                                    // format!("You remembered the sequence correctly in {} {}!",
-                                    //         self.input_direction.icon(),
-                                    //         self.input_direction.short_name())
                         );
 
                         // Show the sequence for confirmation
@@ -461,6 +460,12 @@ impl eframe::App for MemoryGame {
                             .collect::<Vec<String>>()
                             .join(", ");
                         ui.heading(&correct_seq);
+
+                        // Show input time if available
+                        if let Some(duration) = self.input_duration {
+                            let seconds = duration.as_secs_f32();
+                            ui.label(format!("Time taken: {:.2} seconds", seconds));
+                        }
                     }
                 }
 
