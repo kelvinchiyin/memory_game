@@ -44,13 +44,43 @@ struct MemoryGame {
     current_sequence_index: usize,
     show_sequence: bool,
     normal_mode: bool,
-    input_direction: InputDirection, // New field to track input direction
+    input_direction: InputDirection,
 }
 
 #[derive(Debug, Clone)]
 enum InputDirection {
     Forward,
     Reverse,
+}
+
+impl InputDirection {
+    // fn display_text(&self) -> &str {
+    //     match self {
+    //         InputDirection::Forward => "forward order",
+    //         InputDirection::Reverse => "reverse order",
+    //     }
+    // }
+
+    // fn icon(&self) -> &str {
+    //     match self {
+    //         InputDirection::Forward => "[FORWARD]",
+    //         InputDirection::Reverse => "[REVERSE]",
+    //     }
+    // }
+
+    fn color(&self) -> egui::Color32 {
+        match self {
+            InputDirection::Forward => egui::Color32::from_rgb(0, 150, 255), // Blue for forward
+            InputDirection::Reverse => egui::Color32::from_rgb(255, 100, 100), // Red for reverse
+        }
+    }
+
+    fn short_name(&self) -> &str {
+        match self {
+            InputDirection::Forward => "FORWARD",
+            InputDirection::Reverse => "REVERSE",
+        }
+    }
 }
 
 impl MemoryGame {
@@ -66,7 +96,7 @@ impl MemoryGame {
             current_sequence_index: 0,
             show_sequence: false,
             normal_mode: true,
-            input_direction: InputDirection::Forward, // Default value
+            input_direction: InputDirection::Forward,
         }
     }
 
@@ -144,7 +174,7 @@ impl MemoryGame {
                             egui::Key::Num4 => self.process_input(CharType::Number(b'4')),
                             egui::Key::Num5 => self.process_input(CharType::Number(b'5')),
                             egui::Key::Num6 => self.process_input(CharType::Number(b'6')),
-                            egui::Key::Num7 => self.process_input(CharType::Number(b'7')),
+                            egui::Key::Num7 => self.process_input(CharType::Number(b'7')),  // Fixed this line
                             egui::Key::Num8 => self.process_input(CharType::Number(b'8')),
                             egui::Key::Num9 => self.process_input(CharType::Number(b'9')),
                             egui::Key::Backspace | egui::Key::Delete => {
@@ -318,12 +348,17 @@ impl eframe::App for MemoryGame {
                     }
 
                     GamePhase::Inputting => {
-                        let direction_text = match self.input_direction {
-                            InputDirection::Forward => "forward order",
-                            InputDirection::Reverse => "reverse order",
-                        };
+                        ui.heading("Enter the sequence:");
 
-                        ui.heading(format!("Enter the sequence in {}:", direction_text));
+                        // Show visual indicator for input direction with enhanced styling
+                        ui.horizontal(|ui| {
+                            ui.label("Direction: ");
+                            ui.colored_label(
+                                self.input_direction.color(),
+                                format!("{}", self.input_direction.short_name())
+                                    // format!("{} {}", self.input_direction.icon(), self.input_direction.short_name())
+                            );
+                        });
 
                         // Show what the user has entered so far
                         let entered: String = self.user_input
@@ -388,12 +423,15 @@ impl eframe::App for MemoryGame {
                             }
                         };
 
-                        let direction_text = match self.input_direction {
-                            InputDirection::Forward => "forward order",
-                            InputDirection::Reverse => "reverse order",
-                        };
+                        ui.horizontal(|ui| {
+                            ui.label("Correct sequence: ");
+                            ui.colored_label(
+                                self.input_direction.color(),
+                                format!("{}", self.input_direction.short_name())
 
-                        ui.label(format!("Correct sequence (in {}):", direction_text));
+                                // format!("{} {}", self.input_direction.icon(), self.input_direction.short_name())
+                            );
+                        });
                         ui.heading(&correct_seq);
 
                         if self.normal_mode {
@@ -402,13 +440,18 @@ impl eframe::App for MemoryGame {
                     }
 
                     GamePhase::Success => {
-                        let direction_text = match self.input_direction {
-                            InputDirection::Forward => "forward",
-                            InputDirection::Reverse => "reverse",
-                        };
+                        ui.horizontal(|ui| {
+                            // ui.colored_label(egui::Color32::GREEN, "✅");
+                            ui.heading("Congratulations!");
+                        });
 
-                        ui.heading("Congratulations!");
-                        ui.colored_label(egui::Color32::GREEN, format!("You remembered the sequence correctly in {} order!", direction_text));
+                        ui.colored_label(egui::Color32::GREEN,
+                            format!("You remembered the sequence correctly in {}!",
+                                    self.input_direction.short_name())
+                                    // format!("You remembered the sequence correctly in {} {}!",
+                                    //         self.input_direction.icon(),
+                                    //         self.input_direction.short_name())
+                        );
 
                         // Show the sequence for confirmation
                         ui.label("The sequence was:");
